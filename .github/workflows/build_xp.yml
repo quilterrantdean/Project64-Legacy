@@ -14,10 +14,10 @@ jobs:
       - name: Obter codigo-fonte
         uses: actions/checkout@v4
 
-      - name: Instalar conjunto de ferramentas v141_xp no Visual Studio
+      - name: Instalar conjunto de ferramentas v141_xp com ATL e MFC
         shell: cmd
         run: |
-          start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP
+          start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
 
       - name: Configurar MSBuild
         uses: microsoft/setup-msbuild@v2
