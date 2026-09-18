@@ -1,178 +1,124 @@
 name: Build Project64 for Windows XP
 
 on:
-push:
-branches: ["master"]
-workflow_dispatch:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
 
 permissions:
-contents: write
+  contents: write
 
 jobs:
-build-xp:
-runs-on: windows-2022
+  build-xp:
+    runs-on: windows-2022
 
-```
-steps:
+    steps:
+      - name: Checkout Project64 Legacy 1.6.4 source
+        shell: cmd
+        run: |
+          git clone --depth 1 --branch 1.6.4 https://github.com/pj64team/Project64-Legacy.git source
+          cd source
+          for /f %%H in ('git rev-parse HEAD') do set SOURCE_COMMIT=%%H
+          echo Source commit: %SOURCE_COMMIT%
+          if not "%SOURCE_COMMIT%"=="1d0f400315f6f9e41bd5ede510d6c2ccc5312090" (
+            echo ERROR: branch 1.6.4 does not match the expected commit.
+            exit /b 1
+          )
+          cd ..
 
-  # ------------------------------------------------------------
-  # 1. Obter SEMPRE o codigo-fonte do ramo 1.6.4 do upstream.
-  #    O conteudo do fork nao e usado para a compilacao.
-  # ------------------------------------------------------------
-  - name: Obter Project64 Legacy 1.6.4 original
-    shell: cmd
-    run: |
-      git clone --depth 1 --branch 1.6.4 https://github.com/pj64team/Project64-Legacy.git source
+      - name: Install Visual Studio v141_xp toolset
+        shell: cmd
+        run: |
+          start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
 
-      cd source
-      for /f %%H in ('git rev-parse HEAD') do set SOURCE_COMMIT=%%H
+      - name: Configure MSBuild
+        uses: microsoft/setup-msbuild@v3
+        with:
+          msbuild-architecture: x86
 
-      echo Source commit: %SOURCE_COMMIT%
+      - name: Build normal XP release
+        shell: cmd
+        run: |
+          msbuild source\Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp
 
-      if not "%SOURCE_COMMIT%"=="1d0f400315f6f9e41bd5ede510d6c2ccc5312090" (
-        echo ERRO: o ramo 1.6.4 nao corresponde ao commit esperado.
-        exit /b 1
-      )
+          if errorlevel 1 exit /b %errorlevel%
 
-      cd ..
+          if not exist "PJ64_1.6.2\Project64_1.6.3_XP.exe" (
+            echo ERROR: normal XP build did not produce the expected executable.
+            exit /b 1
+          )
 
-  # ------------------------------------------------------------
-  # 2. Instalar MSBuild / toolset XP
-  # ------------------------------------------------------------
-  - name: Instalar conjunto de ferramentas v141_xp
-    shell: cmd
-    run: |
-      start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
+          if not exist "dist\release" mkdir "dist\release"
 
-  - name: Configurar MSBuild
-    uses: microsoft/setup-msbuild@v3
-    with:
-      msbuild-architecture: x86
+          copy /y "PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\release\Project64_1.6.4_XP.exe"
 
-  # ------------------------------------------------------------
-  # 3. BUILD NORMAL
-  #
-  #    Usa a configuracao "Release for XP" original da 1.6.4.
-  #    Nao altera a estrategia de optimizacao do projecto.
-  # ------------------------------------------------------------
-  - name: Compilar Release normal XP
-    shell: cmd
-    run: |
-      msbuild source\Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp
+          if errorlevel 1 exit /b %errorlevel%
 
-      if errorlevel 1 exit /b %errorlevel%
+      - name: Build Prescott performance variant
+        shell: cmd
+        env:
+          CL: /arch:SSE2
+        run: |
+          msbuild source\Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:WholeProgramOptimization=true /p:LinkTimeCodeGeneration=UseLinkTimeCodeGeneration
 
-      if not exist "PJ64_1.6.2\Project64_1.6.3_XP.exe" (
-        echo ERRO: a compilacao normal nao produziu o executavel esperado.
-        exit /b 1
-      )
+          if errorlevel 1 exit /b %errorlevel%
 
-      if not exist "dist\release" mkdir "dist\release"
+          if not exist "PJ64_1.6.2\Project64_1.6.3_XP.exe" (
+            echo ERROR: Prescott build did not produce the expected executable.
+            exit /b 1
+          )
 
-      copy /y "PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\release\Project64_1.6.4_XP.exe"
+          if not exist "dist\prescott" mkdir "dist\prescott"
 
-      if errorlevel 1 exit /b %errorlevel%
+          copy /y "PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
 
-  # ------------------------------------------------------------
-  # 4. BUILD PESSOAL PARA P4 HT PRESCOTT
-  #
-  #    - optimizacao para velocidade
-  #    - preferencia por velocidade
-  #    - SSE2
-  #    - Whole Program Optimization
-  #    - Link-Time Code Generation
-  #
-  #    O Prescott suporta SSE2.
-  # ------------------------------------------------------------
-  - name: Compilar variante pessoal Prescott
-    shell: cmd
-    env:
-      CL: /arch:SSE2
-    run: |
-      msbuild source\Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:WholeProgramOptimization=true /p:LinkTimeCodeGeneration=UseLinkTimeCodeGeneration
+          if errorlevel 1 exit /b %errorlevel%
 
-      if errorlevel 1 exit /b %errorlevel%
+      - name: Install UPX
+        shell: cmd
+        run: |
+          choco install upx --version=5.2.1 -y --no-progress
 
-      if not exist "PJ64_1.6.2\Project64_1.6.3_XP.exe" (
-        echo ERRO: a compilacao Prescott nao produziu o executavel esperado.
-        exit /b 1
-      )
+          if errorlevel 1 exit /b %errorlevel%
 
-      if not exist "dist\prescott" mkdir "dist\prescott"
+      - name: Compress final executables
+        shell: cmd
+        run: |
+          upx --best "dist\release\Project64_1.6.4_XP.exe"
+          if errorlevel 1 exit /b %errorlevel%
 
-      copy /y "PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
+          upx --best "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
+          if errorlevel 1 exit /b %errorlevel%
 
-      if errorlevel 1 exit /b %errorlevel%
+          upx -t "dist\release\Project64_1.6.4_XP.exe"
+          if errorlevel 1 exit /b %errorlevel%
 
-  # ------------------------------------------------------------
-  # 5. Instalar UPX
-  #
-  #    A compressao reduz o tamanho do ficheiro distribuido;
-  #    nao altera a estrategia de optimizacao do codigo.
-  # ------------------------------------------------------------
-  - name: Instalar UPX
-    shell: cmd
-    run: |
-      choco install upx --version=5.2.1 -y --no-progress
+          upx -t "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
+          if errorlevel 1 exit /b %errorlevel%
 
-      if errorlevel 1 exit /b %errorlevel%
+          dir "dist\release"
+          dir "dist\prescott"
 
-  # ------------------------------------------------------------
-  # 6. Compactar ambos os executaveis
-  # ------------------------------------------------------------
-  - name: Compactar executaveis finais
-    shell: cmd
-    run: |
-      upx --best "dist\release\Project64_1.6.4_XP.exe"
+      - name: Publish Prescott artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Project64_1.6.4_XP_Prescott
+          path: dist/prescott/Project64_1.6.4_XP_Prescott.exe
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
 
-      if errorlevel 1 exit /b %errorlevel%
+      - name: Publish XP release
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v1.6.4-xp --repo "%GITHUB_REPOSITORY%" >nul 2>&1
 
-      upx --best "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
-
-      if errorlevel 1 exit /b %errorlevel%
-
-      upx -t "dist\release\Project64_1.6.4_XP.exe"
-
-      if errorlevel 1 exit /b %errorlevel%
-
-      upx -t "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
-
-      if errorlevel 1 exit /b %errorlevel%
-
-      dir "dist\release"
-      dir "dist\prescott"
-
-  # ------------------------------------------------------------
-  # 7. ARTIFACT PRESCOTT
-  #
-  #    Nao vai para a Release.
-  # ------------------------------------------------------------
-  - name: Publicar artifact Prescott
-    uses: actions/upload-artifact@v6
-    with:
-      name: Project64_1.6.4_XP_Prescott
-      path: dist/prescott/Project64_1.6.4_XP_Prescott.exe
-      retention-days: 90
-      compression-level: 0
-      if-no-files-found: error
-
-  # ------------------------------------------------------------
-  # 8. RELEASE NORMAL
-  #
-  #    Fica no fork onde a Action corre.
-  # ------------------------------------------------------------
-  - name: Publicar Release XP
-    shell: cmd
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    run: |
-      gh release view v1.6.4-xp --repo "%GITHUB_REPOSITORY%" >nul 2>&1
-
-      if errorlevel 1 (
-        gh release create v1.6.4-xp "dist\release\Project64_1.6.4_XP.exe" --repo "%GITHUB_REPOSITORY%" --title "Project64 Legacy v1.6.4 (Windows XP)" --notes "Build Windows XP baseada no ramo 1.6.4 do repositorio original pj64team/Project64-Legacy. Commit de origem: 1d0f400315f6f9e41bd5ede510d6c2ccc5312090."
-        if errorlevel 1 exit /b %errorlevel%
-      ) else (
-        gh release upload v1.6.4-xp "dist\release\Project64_1.6.4_XP.exe" --repo "%GITHUB_REPOSITORY%" --clobber
-        if errorlevel 1 exit /b %errorlevel%
-      )
-```
+          if errorlevel 1 (
+            gh release create v1.6.4-xp "dist\release\Project64_1.6.4_XP.exe" --repo "%GITHUB_REPOSITORY%" --title "Project64 Legacy v1.6.4 (Windows XP)" --notes "Windows XP build based on the 1.6.4 branch of the original pj64team/Project64-Legacy repository. Source commit: 1d0f400315f6f9e41bd5ede510d6c2ccc5312090."
+            if errorlevel 1 exit /b %errorlevel%
+          ) else (
+            gh release upload v1.6.4-xp "dist\release\Project64_1.6.4_XP.exe" --repo "%GITHUB_REPOSITORY%" --clobber
+            if errorlevel 1 exit /b %errorlevel%
+          )
