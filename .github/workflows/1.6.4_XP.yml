@@ -1,4 +1,4 @@
-name: Build Project64 for Windows XP
+name: Build Project64 1.6.4 for Windows XP
 
 on:
   push:
