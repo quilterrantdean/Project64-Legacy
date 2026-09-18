@@ -24,20 +24,22 @@ jobs:
         run: |
           start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
 
-      - name: 1. Compilar versao optimizada para Pentium 4 Prescott (Velocidade maxima)
+      - name: 1. Compilar versao optimizada para Pentium 4 Prescott
         shell: cmd
         run: |
-          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:TargetName="Project64_1.6.4_XP_Prescott" /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:EnableEnhancedInstructionSet=StreamingSIMDExtensions2
+          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:EnableEnhancedInstructionSet=StreamingSIMDExtensions2
           mkdir dist\prescott
-          copy "..\PJ64_1.6.2\Project64_1.6.4_XP_Prescott.exe" dist\prescott\ || for /r D:\a\ %%f in (*Prescott*.exe) do copy "%%f" dist\prescott\
+          copy "..\PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\prescott\Project64_1.6.4_XP_Prescott.exe"
+          del /f /q "..\PJ64_1.6.2\Project64_1.6.3_XP.exe"
           dir dist\prescott\
 
       - name: 2. Compilar versao geral (Optimizada para tamanho)
         shell: cmd
         run: |
-          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:TargetName="Project64_1.6.4_XP" /p:Optimization=MinSpace /p:FavorSizeOrSpeed=Size
+          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:Optimization=MinSpace /p:FavorSizeOrSpeed=Size
           mkdir dist\release
-          copy "..\PJ64_1.6.2\Project64_1.6.4_XP.exe" dist\release\ || for /r D:\a\ %%f in (Project64_1.6.4_XP.exe) do copy "%%f" dist\release\
+          copy "..\PJ64_1.6.2\Project64_1.6.3_XP.exe" "dist\release\Project64_1.6.4_XP.exe"
+          del /f /q "..\PJ64_1.6.2\Project64_1.6.3_XP.exe"
           dir dist\release\
 
       - name: 3. Compactar versao geral com UPX
