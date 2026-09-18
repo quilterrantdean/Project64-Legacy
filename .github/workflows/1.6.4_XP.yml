@@ -24,7 +24,7 @@ jobs:
         run: |
           start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
 
-      - name: 1. Compilar versao optimizada para Pentium 4 Prescott
+      - name: 1. Compilar versao optimizada para Pentium 4 Prescott (Velocidade maxima)
         shell: cmd
         run: |
           "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:EnableEnhancedInstructionSet=StreamingSIMDExtensions2
@@ -62,4 +62,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --title "Project64 Legacy v1.6.4 (Windows XP)" --notes "Compilacao oficial para Windows XP da versao 1.6.4 [The End], optimizada para tamanho e compactada com UPX." || gh release upload v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --clobber
+          gh release create v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --repo ${{ github.repository }} --title "Project64 Legacy v1.6.4 (Windows XP)" --notes "Compilacao oficial para Windows XP da versao 1.6.4 [The End], optimizada para tamanho e compactada com UPX." || gh release upload v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --repo ${{ github.repository }} --clobber
