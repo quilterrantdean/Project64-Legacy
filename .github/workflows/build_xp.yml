@@ -31,12 +31,12 @@ jobs:
         shell: cmd
         run: |
           mkdir dist
-          if exist "..\PJ64_1.6.2\Project64_1.6.3_XP.exe" copy "..\PJ64_1.6.2\Project64_1.6.3_XP.exe" dist\
-          if exist "PJ64_1.6.2\Project64_1.6.3_XP.exe" copy "PJ64_1.6.2\Project64_1.6.3_XP.exe" dist\
-          if not exist "dist\Project64_1.6.3_XP.exe" for /r . %%f in (Project64*.exe) do copy "%%f" dist\
+          copy "..\PJ64_1.6.2\Project64_1.6.2_XP.exe" dist\ || copy "..\PJ64_1.6.2\*.exe" dist\ || for /r D:\a\ %%f in (Project64*.exe) do copy "%%f" dist\
+          dir dist\
 
       - name: Disponibilizar executavel para descarregar
         uses: actions/upload-artifact@v4
         with:
-          name: Project64_1.6.3_XP
+          name: Project64_XP_Binary
           path: dist/*.exe
+          if-no-files-found: error
