@@ -1,4 +1,4 @@
-name: Build Project64 1.6.4 for Windows XP
+name: Build Project64 for Windows XP
 
 on:
   push:
@@ -6,40 +6,58 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-xp:
     runs-on: windows-2022
 
     steps:
-      - name: Obter codigo-fonte oficial v1.6.4
-        uses: actions/checkout@v4
-        with:
-          repository: pj64team/Project64-Legacy
-          ref: Project64-1.6.4
+      - name: Obter codigo-fonte oficial v1.6.4 (Git nativo)
+        shell: cmd
+        run: |
+          git clone --depth 1 --branch Project64-1.6.4 https://github.com/pj64team/Project64-Legacy.git .
 
       - name: Instalar conjunto de ferramentas v141_xp com ATL e MFC
         shell: cmd
         run: |
           start /wait "" "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --nocache --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.v141.ATL --add Microsoft.VisualStudio.Component.VC.v141.MFC
 
-      - name: Configurar MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Compilar solucao com destino Windows XP
+      - name: 1. Compilar versao optimizada para Pentium 4 Prescott (Velocidade maxima)
         shell: cmd
         run: |
-          msbuild Project64.sln /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp
+          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:TargetName="Project64_1.6.4_XP_Prescott" /p:Optimization=MaxSpeed /p:FavorSizeOrSpeed=Speed /p:EnableEnhancedInstructionSet=StreamingSIMDExtensions2
+          mkdir dist\prescott
+          copy "..\PJ64_1.6.2\Project64_1.6.4_XP_Prescott.exe" dist\prescott\ || for /r D:\a\ %%f in (*Prescott*.exe) do copy "%%f" dist\prescott\
+          dir dist\prescott\
 
-      - name: Recolher executavel gerado
+      - name: 2. Compilar versao geral (Optimizada para tamanho)
         shell: cmd
         run: |
-          mkdir dist
-          for /r D:\a\ %%f in (Project64*.exe) do copy "%%f" dist\
-          dir dist\
+          "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe" Project64.sln /t:Rebuild /p:Configuration="Release for XP" /p:Platform="Win32" /p:PlatformToolset=v141_xp /p:TargetName="Project64_1.6.4_XP" /p:Optimization=MinSpace /p:FavorSizeOrSpeed=Size
+          mkdir dist\release
+          copy "..\PJ64_1.6.2\Project64_1.6.4_XP.exe" dist\release\ || for /r D:\a\ %%f in (Project64_1.6.4_XP.exe) do copy "%%f" dist\release\
+          dir dist\release\
 
-      - name: Disponibilizar executavel para descarregar
+      - name: 3. Compactar versao geral com UPX
+        shell: cmd
+        run: |
+          choco install upx -y --no-progress
+          upx --best dist\release\Project64_1.6.4_XP.exe
+          dir dist\release\
+
+      - name: Disponibilizar artefacto Prescott (Apenas temporario, sem Release)
         uses: actions/upload-artifact@v4
         with:
-          name: Project64_1.6.4_XP_The_End
-          path: dist/*.exe
+          name: Project64_1.6.4_XP_Prescott
+          path: dist/prescott/Project64_1.6.4_XP_Prescott.exe
+          retention-days: 90
           if-no-files-found: error
+
+      - name: Publicar Release oficial no repositorio (/releases)
+        shell: cmd
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --title "Project64 Legacy v1.6.4 (Windows XP)" --notes "Compilacao oficial para Windows XP da versao 1.6.4 [The End], optimizada para tamanho e compactada com UPX." || gh release upload v1.6.4-xp dist\release\Project64_1.6.4_XP.exe --clobber
